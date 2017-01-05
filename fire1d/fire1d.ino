@@ -6,7 +6,7 @@
 #define PIN 6
 #define LEDS 150
 #define LINE_LENGTH 20
-#define MAX_TICK 100000
+#define MAX_TICK 360
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -23,42 +23,24 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(LEDS, PIN, NEO_GRB + NEO_KHZ800);
 // and minimize distance between Arduino and first pixel.  Avoid connecting
 // on a live circuit...if you must, connect GND first.
 
-uint32_t palette[11];
-int ledmap[150];
+const float pi = 3.1412;
+double ledmap[150];
 int tick = 0;
-
 
 void setup() {
   strip.begin();
-  palette[0] = strip.Color(  0,   0,  0, 0);
-  palette[1] = strip.Color(  5,   0,  0, 0);
-  palette[2] = strip.Color( 10,   1,  0, 0);
-  palette[3] = strip.Color( 20,   2,  0, 0);
-  palette[4] = strip.Color( 30,   4,  0, 0);
-  palette[5] = strip.Color( 50,   8,  0, 0);
-  palette[6] = strip.Color( 70,  16,  0, 0);
-  palette[7] = strip.Color(100,  24,  0, 0);
-  palette[8] = strip.Color(120,  36,  1, 0);
-  palette[9] = strip.Color(140,  48,  5, 0);
-  palette[10] = strip.Color(160, 64,  10, 0);
-  palette[11] = strip.Color(180, 72,  22, 0);
-  for (int i=0; i<150;i++) {
-    ledmap[i] = random(0,11);
-  }
+  spark();
+  setAllToMapColor();
   strip.show(); // Initialize all pixels to 'off'
 }
 
 void loop() {
   next();
-//  for (int i=0; i<150;i++) {
-//    ledmap[i] = random(0,10);
-//  }
-  mutateMap();
-  setAllToMapColor();
-  delay(50);
-//  setAllToRandomPaletteColor(tick);
-//  delay(1250);
-//  whiteFlash(tick);
+//  spark();
+//  setAllToMapColor();
+//  mutateMap();
+  cycleColorWave(tick);
+//  delay(100);
 }
 
 void next() {
@@ -69,81 +51,79 @@ void next() {
   tick++;
 }
 
+void spark() {
+  for (int i = 0; i < LEDS; i++) {
+    ledmap[i] = random(0.0, 1.0);
+  }
+}
+
 void setAllToMapColor() {
   // color
-  for (int i=0; i<150;i++) {
-    uint32_t color = palette[ledmap[i]];
-    strip.setPixelColor(i, color);
+  for (int i = 0; i < LEDS; i++) {
+    strip.setPixelColor(i, color23(ledmap[i]));
   }
   strip.show();
 }
 
-void setAllToRandomPaletteColor(int tick) {
+void cycleColorWave(int tick) {
+  int i, deg;
+  for(i=0; i < LEDS; i++) {
+    deg = (tick*3 + i*10) % 360;
+    float rad = deg * pi / 360;
+    strip.setPixelColor(i, color23((sin(rad) * sin(rad)) + 0.5 * sin(tick * pi / 90) - 0.5));
+  }
+    strip.show();
+}
+
+void cycleColors(int tick) {
   // color
-  uint32_t color = palette[random(0, 11)];
-  strip.setPixelColor(random(0,150), color);
+  float rad = tick * pi / 360;
+  setAllTo(color23(sin(rad) * sin(rad)));
   strip.show();
 }
 
+
 void mutateMap() {
-  int index = 0;
-  uint32_t n[150];
-  for (;index<150;index++) {
-    int avg = floor(
+  uint32_t n[LEDS];
+  for (int index = 0; index < LEDS; index++) {
+    double avg = 
+      ledmap[index-2] + 
+      ledmap[index-1] + 
       ledmap[index] + 
-      ledmap[index+1] + 
+      ledmap[index+1] +
       ledmap[index+2]
-      / 3);
-    if (avg > 9) {
-      avg = 6;
+      / 5;
+    if (avg > 0.7) {
+      avg = 0.6;
     }
-    if (avg < 1) {
-      avg = 2;
+    if (avg < 0.2) {
+      avg = 0.2;
     }
     n[index] = avg;
   }
-  int g = 0; //random(-1, 1);
-  for (int j = 0;j<150;j++) {
-//    int rnd = ledmap[j] + random(-4, 0);
-
-    int nval = round(n[j]+ledmap[j]/2);
-    nval += random(-4, -1);
-    if (nval > 9) {
-      nval = 9;
-    }
-    if (nval < 0) {
-      nval = 0;
-    }
+  int g = 0;
+  for (int j = 0; j < LEDS; j++) {
+    double nval = (n[j] + ledmap[j])/2;
+    nval += random(0.4, 1);
     ledmap[j] = nval;
   }
 }
 
-void whiteFlash(int tick) {
-  uint16_t j;
-  int val;
-  uint32_t color;
-  if (tick % 50 > 0) {
-    return;
-  }
-  for(j=0; j<10; j++) { // 5 cycles of all colors on wheel
-    val = j * 2;
-    color = strip.Color(val, val, val, 0);
-    setAllTo(color);
-    strip.show();
-  }
-  for(j=0; j<11; j++) { // 5 cycles of all colors on wheel
-    val = 20 - j * 2;
-    color = strip.Color(val, val, val, 0);
-    setAllTo(color);
-    strip.show();
-  }
-  delay(150);
-}
-
 void setAllTo(uint32_t color) {
-  uint16_t i;
-  for(i=0; i< strip.numPixels(); i++) {
+  int i;
+  for(i=0; i < LEDS; i++) {
     strip.setPixelColor(i, color);
   }
+}
+
+uint32_t color23 (double value) {
+  if (value > 1) { value = 1; }
+  if (value < 0) { value = 0; }
+
+  return strip.Color(
+    floor(240*value), 
+    floor(120*value*value), 
+    floor(30*value*value*value)
+  );
 }
 
