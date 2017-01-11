@@ -8,6 +8,11 @@
 #define LINE_LENGTH 20
 #define MAX_TICK 360
 
+const int w = 20;
+int horst[w];
+int index = 0;
+int sum = 0;
+
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
 // Parameter 3 = pixel type flags, add together as needed:
@@ -28,19 +33,25 @@ double ledmap[150];
 int tick = 0;
 
 void setup() {
+  Serial.begin(9600);
+  pinMode(7, INPUT);
   strip.begin();
-  spark();
-  setAllToMapColor();
+//  spark();
+//  setAllToMapColor();
   strip.show(); // Initialize all pixels to 'off'
 }
 
 void loop() {
   next();
-//  spark();
 //  setAllToMapColor();
-//  mutateMap();
+  index = (index + 1) % w;
+  horst[index] = digitalRead(7);
+  sum = 0;
+  for (int i = 0; i<w; i++) {
+    sum += horst[i];
+  }
   cycleColorWave(tick);
-//  delay(100);
+  Serial.println(sum);
 }
 
 void next() {
@@ -68,9 +79,13 @@ void setAllToMapColor() {
 void cycleColorWave(int tick) {
   int i, deg;
   for(i=0; i < LEDS; i++) {
-    deg = (tick*3 + i*10) % 360;
+    deg = (tick*4);// % 360;
     float rad = deg * pi / 360;
-    strip.setPixelColor(i, color23((sin(rad) * sin(rad)) + 0.5 * sin(tick * pi / 90) - 0.5));
+    strip.setPixelColor(i, 
+      color23(
+        (0.5* sin(rad - i*pi/25) * sin(rad + i*pi/15)) + 
+        0.25 * cos(i * pi / 3) * cos(i * pi / 25) + sum * 0.15 - 0.05)
+    );
   }
     strip.show();
 }
@@ -121,9 +136,9 @@ uint32_t color23 (double value) {
   if (value < 0) { value = 0; }
 
   return strip.Color(
-    floor(240*value), 
-    floor(120*value*value), 
-    floor(30*value*value*value)
+    floor(250*value), 
+    floor(100*value*value), 
+    floor(20*value*value*value)
   );
 }
 
